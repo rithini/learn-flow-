@@ -1,0 +1,36 @@
+erDiagram
+    users ||--o| students : "1:1 profile"
+    users ||--o| trainers : "1:1 profile"
+    users ||--o| admins : "1:1 profile"
+    users ||--o{ refresh_tokens : "has"
+    users ||--o{ audit_logs : "triggers"
+    users ||--o{ courses : "creates"
+    users ||--o{ course_enrollments : "enrolls"
+
+    courses ||--o{ topics : "contains"
+    courses ||--o{ materials : "contains"
+    courses ||--o{ course_enrollments : "enrolled_by"
+
+    topics ||--o{ topic_prerequisites : "has_prereqs"
+    topics ||--o{ learning_capsules : "has"
+    topics ||--o{ quizzes : "has"
+    topics ||--o{ student_topic_performance : "measured_by"
+
+    materials ||--o{ material_processing : "processed_by"
+    materials ||--o{ material_chunks : "chunked_into"
+
+    learning_capsules ||--o{ capsule_sections : "structured_into"
+    learning_capsules ||--o{ videos : "has_video"
+
+    quizzes ||--o{ quiz_questions : "contains"
+    quiz_questions ||--o{ quiz_options : "has"
+
+    users ||--o{ quiz_attempts : "attempts"
+    quizzes ||--o{ quiz_attempts : "has"
+    quiz_attempts ||--o{ quiz_answers : "records"
+
+    users ||--o{ learning_paths : "has_path"
+    learning_paths ||--o{ learning_path_items : "ordered_into"
+
+    users ||--o{ recommendations : "receives"
+    users ||--o{ notifications : "receives"
