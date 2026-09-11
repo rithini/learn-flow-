@@ -99,6 +99,8 @@ class QuizTrainerResponse(BaseModel):
 
     id: str
     topic_id: str
+    topic_title: Optional[str] = None
+    course_title: Optional[str] = None
     type: QuizType
     title: str
     pass_score: float

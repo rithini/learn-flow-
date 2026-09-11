@@ -7,46 +7,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Users, HelpCircle, BarChart3, Award, CheckCircle2, User } from 'lucide-react';
 import { useAuthStore } from '../../stores/useAuthStore';
 
-export const QuizManagementPage: React.FC = () => {
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Quiz & Question Bank Management</h1>
-          <p className="text-xs text-muted-foreground">Manage topic quizzes, question options, and publishing state.</p>
-        </div>
-        <Button>
-          <HelpCircle className="w-4 h-4 mr-1.5" /> New Assessment
-        </Button>
-      </div>
-
-      <div className="space-y-4">
-        {[
-          { title: 'Math Foundations Knowledge Check', topic: '1. Foundations', questions: 2, passScore: 70, status: 'PUBLISHED' },
-          { title: 'Linear & Logistic Regression Checkpoint', topic: '2. Regression', questions: 2, passScore: 70, status: 'PUBLISHED' },
-          { title: 'Neural Networks & Backprop Quiz', topic: '3. Neural Nets', questions: 3, passScore: 70, status: 'PUBLISHED' },
-          { title: 'Optimization & Regularization Quiz', topic: '4. Optimization', questions: 2, passScore: 70, status: 'DRAFT' },
-        ].map((q, idx) => (
-          <Card key={idx} className="border-border">
-            <CardContent className="p-5 flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h4 className="font-bold text-sm text-foreground">{q.title}</h4>
-                  <Badge variant={q.status === 'PUBLISHED' ? 'success' : 'warning'}>{q.status}</Badge>
-                </div>
-                <span className="text-xs text-muted-foreground">{q.topic} • {q.questions} Questions • Pass Criteria: {q.passScore}%</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button size="sm" variant="outline">Edit Questions</Button>
-                {q.status === 'DRAFT' && <Button size="sm" variant="success">Publish</Button>}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </div>
-  );
-};
+export { QuizManagementPage } from './QuizManagementPage';
 
 export const StudentPerformancePage: React.FC = () => {
   return (

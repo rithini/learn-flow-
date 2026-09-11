@@ -5,6 +5,8 @@ from app.db.session import get_db
 from app.core.permissions import get_current_user, get_current_trainer, get_current_student, verify_course_ownership
 from app.core.exceptions import NotFoundException, ForbiddenException, BadRequestException
 from app.models.user import User
+from app.models.course import Course
+from app.models.topic import Topic
 from app.models.quiz import Quiz, QuizQuestion, QuizOption, QuizAttempt, QuizAnswer
 from app.models.enums import CourseStatus, UserRole
 from app.schemas.quiz import (
@@ -27,12 +29,39 @@ router = APIRouter(tags=["Quizzes & Attempts"])
 
 # --- Trainer Quiz Management ---
 
+@router.get("/trainer/quizzes", response_model=List[QuizTrainerResponse])
+def get_trainer_quizzes(
+    topic_id: Optional[str] = None,
+    course_id: Optional[str] = None,
+    current_trainer: User = Depends(get_current_trainer),
+    db: Session = Depends(get_db),
+):
+    query = (
+        db.query(Quiz)
+        .join(Topic, Quiz.topic_id == Topic.id)
+        .join(Course, Topic.course_id == Course.id)
+        .filter(Course.trainer_id == current_trainer.id)
+    )
+    if topic_id:
+        query = query.filter(Quiz.topic_id == topic_id)
+    if course_id:
+        query = query.filter(Course.id == course_id)
+
+    quizzes = query.order_by(Quiz.created_at.desc()).all()
+    return [_to_trainer_quiz_response(q) for q in quizzes]
+
+
 @router.post("/trainer/quizzes", response_model=QuizTrainerResponse, status_code=status.HTTP_201_CREATED)
 def create_trainer_quiz(
     req: QuizCreate,
     current_trainer: User = Depends(get_current_trainer),
     db: Session = Depends(get_db),
 ):
+    topic = db.query(Topic).filter(Topic.id == req.topic_id).first()
+    if not topic:
+        raise NotFoundException("Topic", req.topic_id)
+    verify_course_ownership(topic.course_id, current_trainer, db)
+
     quiz = Quiz(
         topic_id=req.topic_id,
         type=req.type,
@@ -44,25 +73,25 @@ def create_trainer_quiz(
     db.add(quiz)
     db.flush()
 
-    for q_data in req.questions:
+    for idx, q_data in enumerate(req.questions):
         question = QuizQuestion(
             quiz_id=quiz.id,
             question_text=q_data.question_text,
             question_type=q_data.question_type,
             difficulty=q_data.difficulty,
             explanation=q_data.explanation,
-            sequence_no=q_data.sequence_no,
+            sequence_no=q_data.sequence_no or (idx + 1),
             marks=q_data.marks,
         )
         db.add(question)
         db.flush()
 
-        for opt in q_data.options:
+        for opt_idx, opt in enumerate(q_data.options):
             option = QuizOption(
                 question_id=question.id,
                 option_text=opt.option_text,
                 is_correct=opt.is_correct,
-                sequence_no=opt.sequence_no,
+                sequence_no=opt.sequence_no or (opt_idx + 1),
             )
             db.add(option)
 
@@ -105,26 +134,31 @@ def update_trainer_quiz(
         quiz.status = req.status
 
     if req.questions is not None:
-        db.query(QuizQuestion).filter(QuizQuestion.quiz_id == quiz.id).delete()
-        for q_data in req.questions:
+        q_ids = [q.id for q in quiz.questions]
+        if q_ids:
+            db.query(QuizOption).filter(QuizOption.question_id.in_(q_ids)).delete(synchronize_session=False)
+        db.query(QuizQuestion).filter(QuizQuestion.quiz_id == quiz.id).delete(synchronize_session=False)
+        db.flush()
+
+        for idx, q_data in enumerate(req.questions):
             question = QuizQuestion(
                 quiz_id=quiz.id,
                 question_text=q_data.question_text,
                 question_type=q_data.question_type,
                 difficulty=q_data.difficulty,
                 explanation=q_data.explanation,
-                sequence_no=q_data.sequence_no,
+                sequence_no=q_data.sequence_no or (idx + 1),
                 marks=q_data.marks,
             )
             db.add(question)
             db.flush()
 
-            for opt in q_data.options:
+            for opt_idx, opt in enumerate(q_data.options):
                 option = QuizOption(
                     question_id=question.id,
                     option_text=opt.option_text,
                     is_correct=opt.is_correct,
-                    sequence_no=opt.sequence_no,
+                    sequence_no=opt.sequence_no or (opt_idx + 1),
                 )
                 db.add(option)
 
@@ -148,6 +182,43 @@ def publish_quiz(
     db.commit()
     db.refresh(quiz)
     return _to_trainer_quiz_response(quiz)
+
+
+@router.post("/trainer/quizzes/{quiz_id}/unpublish", response_model=QuizTrainerResponse)
+def unpublish_quiz(
+    quiz_id: str,
+    current_trainer: User = Depends(get_current_trainer),
+    db: Session = Depends(get_db),
+):
+    quiz = db.query(Quiz).filter(Quiz.id == quiz_id).first()
+    if not quiz:
+        raise NotFoundException("Quiz", quiz_id)
+    verify_course_ownership(quiz.topic.course_id, current_trainer, db)
+
+    quiz.status = CourseStatus.DRAFT
+    db.commit()
+    db.refresh(quiz)
+    return _to_trainer_quiz_response(quiz)
+
+
+@router.delete("/trainer/quizzes/{quiz_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_trainer_quiz(
+    quiz_id: str,
+    current_trainer: User = Depends(get_current_trainer),
+    db: Session = Depends(get_db),
+):
+    quiz = db.query(Quiz).filter(Quiz.id == quiz_id).first()
+    if not quiz:
+        raise NotFoundException("Quiz", quiz_id)
+    verify_course_ownership(quiz.topic.course_id, current_trainer, db)
+
+    q_ids = [q.id for q in quiz.questions]
+    if q_ids:
+        db.query(QuizOption).filter(QuizOption.question_id.in_(q_ids)).delete(synchronize_session=False)
+    db.query(QuizQuestion).filter(QuizQuestion.quiz_id == quiz.id).delete(synchronize_session=False)
+    db.delete(quiz)
+    db.commit()
+    return None
 
 
 # --- Student Quiz Delivery & Submissions ---
@@ -272,7 +343,9 @@ def get_attempt_result(
 
 def _to_trainer_quiz_response(quiz: Quiz) -> QuizTrainerResponse:
     questions = []
-    for q in quiz.questions:
+    sorted_questions = sorted(quiz.questions, key=lambda x: x.sequence_no or 0) if quiz.questions else []
+    for q in sorted_questions:
+        sorted_opts = sorted(q.options, key=lambda x: x.sequence_no or 0) if q.options else []
         options = [
             QuizOptionTrainer(
                 id=opt.id,
@@ -280,7 +353,7 @@ def _to_trainer_quiz_response(quiz: Quiz) -> QuizTrainerResponse:
                 is_correct=opt.is_correct,
                 sequence_no=opt.sequence_no,
             )
-            for opt in q.options
+            for opt in sorted_opts
         ]
         questions.append(
             QuizQuestionTrainer(
@@ -295,9 +368,14 @@ def _to_trainer_quiz_response(quiz: Quiz) -> QuizTrainerResponse:
             )
         )
 
+    topic_title = quiz.topic.title if quiz.topic else None
+    course_title = quiz.topic.course.title if (quiz.topic and quiz.topic.course) else None
+
     return QuizTrainerResponse(
         id=quiz.id,
         topic_id=quiz.topic_id,
+        topic_title=topic_title,
+        course_title=course_title,
         type=quiz.type,
         title=quiz.title,
         pass_score=float(quiz.pass_score),

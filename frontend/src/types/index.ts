@@ -126,6 +126,13 @@ export interface QuizOptionPublic {
   sequence_no: number;
 }
 
+export interface QuizOptionTrainer {
+  id?: string;
+  option_text: string;
+  is_correct: boolean;
+  sequence_no: number;
+}
+
 export interface QuizQuestionPublic {
   id: string;
   question_text: string;
@@ -136,6 +143,17 @@ export interface QuizQuestionPublic {
   options: QuizOptionPublic[];
 }
 
+export interface QuizQuestionTrainer {
+  id?: string;
+  question_text: string;
+  question_type: QuestionType;
+  difficulty: DifficultyLevel;
+  explanation?: string | null;
+  sequence_no: number;
+  marks: number;
+  options: QuizOptionTrainer[];
+}
+
 export interface QuizDelivery {
   id: string;
   topic_id: string;
@@ -144,6 +162,59 @@ export interface QuizDelivery {
   pass_score: number;
   status: CourseStatus;
   questions: QuizQuestionPublic[];
+}
+
+export interface QuizTrainer {
+  id: string;
+  topic_id: string;
+  topic_title?: string | null;
+  course_title?: string | null;
+  type: QuizType;
+  title: string;
+  pass_score: number;
+  status: CourseStatus;
+  version: number;
+  created_at: string;
+  questions: QuizQuestionTrainer[];
+}
+
+export interface QuizCreateInput {
+  topic_id: string;
+  type: QuizType;
+  title: string;
+  pass_score: number;
+  questions: Array<{
+    question_text: string;
+    question_type: QuestionType;
+    difficulty: DifficultyLevel;
+    explanation?: string;
+    sequence_no: number;
+    marks: number;
+    options: Array<{
+      option_text: string;
+      is_correct: boolean;
+      sequence_no: number;
+    }>;
+  }>;
+}
+
+export interface QuizUpdateInput {
+  title?: string;
+  pass_score?: number;
+  status?: CourseStatus;
+  questions?: Array<{
+    question_text: string;
+    question_type: QuestionType;
+    difficulty: DifficultyLevel;
+    explanation?: string;
+    sequence_no: number;
+    marks: number;
+    options: Array<{
+      option_text: string;
+      is_correct: boolean;
+      sequence_no: number;
+    }>;
+  }>;
 }
 
 export interface QuizAnswerSubmission {
