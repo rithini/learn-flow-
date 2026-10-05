@@ -78,7 +78,12 @@ class RecommendationService:
         return created_rec
 
     @staticmethod
-    def rebuild_learning_path(db: Session, student_id: str, course_id: str) -> LearningPath:
+    def rebuild_learning_path(
+        db: Session,
+        student_id: str,
+        course_id: str,
+        pacing_mode: str = "STANDARD",
+    ) -> LearningPath:
         # Find active learning path or create new version
         active_path = (
             db.query(LearningPath)
@@ -137,20 +142,46 @@ class RecommendationService:
                 .first()
             )
 
-            reason = "Standard sequence module"
-            if mastery >= 80.0:
-                reason = "Proficient - available for review or quiz practice"
-            elif mastery >= 50.0:
-                reason = "Developing - targeted reinforcement active"
-            elif perf and mastery < 50.0:
-                reason = "Foundational reinforcement & simplified capsule recommended"
+            reason = "Standard curriculum module"
+            activity_type = "CAPSULE"
+
+            if pacing_mode == "SPRINT":
+                if mastery >= 80.0:
+                    reason = "Fast-track mastered • Direct challenge checkpoint unlocked"
+                    activity_type = "CHALLENGE_QUIZ"
+                elif mastery >= 50.0:
+                    reason = "Accelerated review • Key concept focus"
+                    activity_type = "FAST_CAPSULE"
+                else:
+                    reason = "Priority foundational reinforcement before sprint advance"
+                    activity_type = "REMEDIAL_CAPSULE"
+            elif pacing_mode == "DEEP_MASTERY":
+                if mastery >= 80.0:
+                    reason = "Proficient • Deep synthesis & application review"
+                    activity_type = "DEEP_CAPSULE"
+                elif mastery >= 50.0:
+                    reason = "Developing • Step-by-step guided analogy reinforcement"
+                    activity_type = "GUIDED_CAPSULE"
+                else:
+                    reason = "Intensive prerequisite review & simplified analogy required"
+                    activity_type = "FOUNDATION_BOOSTER"
+            else:
+                if mastery >= 80.0:
+                    reason = "Proficient • Ready for review or challenge quiz"
+                    activity_type = "CAPSULE"
+                elif mastery >= 50.0:
+                    reason = "Developing • Targeted practice & concept reinforcement"
+                    activity_type = "CAPSULE"
+                elif perf and mastery < 50.0:
+                    reason = "Foundational reinforcement & simplified capsule recommended"
+                    activity_type = "REMEDIAL_CAPSULE"
 
             item = LearningPathItem(
                 path_id=new_path.id,
                 topic_id=topic.id,
                 capsule_id=capsule.id if capsule else None,
                 position=pos,
-                activity_type="CAPSULE",
+                activity_type=activity_type,
                 status=EnrollmentStatus.ACTIVE,
                 reason_code=reason,
             )

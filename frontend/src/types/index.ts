@@ -287,11 +287,21 @@ export interface LearningPathItem {
   topic_id: string;
   topic_title: string;
   capsule_id?: string | null;
+  quiz_id?: string | null;
   position: number;
   activity_type: string;
   status: EnrollmentStatus;
   reason_code?: string | null;
   mastery_score: number;
+  estimated_minutes: number;
+  difficulty?: DifficultyLevel | string;
+  strength_status?: StrengthStatus;
+  prerequisite_ids?: string[];
+  prerequisite_titles?: string[];
+  prerequisites_met?: boolean;
+  is_locked?: boolean;
+  lock_reason?: string | null;
+  recommended_action?: 'STUDY' | 'QUIZ' | 'REMEDY' | 'ADVANCED' | 'LOCKED' | string;
 }
 
 export interface LearningPath {
@@ -302,6 +312,11 @@ export interface LearningPath {
   version: number;
   status: EnrollmentStatus;
   generated_at: string;
+  pacing_mode?: 'SPRINT' | 'STANDARD' | 'DEEP_MASTERY' | string;
+  estimated_total_minutes?: number;
+  readiness_percentage?: number;
+  completed_items_count?: number;
+  total_items_count?: number;
   items: LearningPathItem[];
 }
 
@@ -318,6 +333,37 @@ export interface StudentPerformance {
   recent_accuracy: number;
   completion_quality: number;
   last_assessed_at?: string | null;
+}
+
+export interface ActivityTimelineEvent {
+  id: string;
+  event_type: 'QUIZ' | 'CAPSULE';
+  title: string;
+  topic_title: string;
+  timestamp: string;
+  time_spent_seconds: number;
+  time_spent_formatted: string;
+  score?: number | null;
+  percentage: number;
+  passed: boolean;
+  badge_label: string;
+  speed_pace: string;
+}
+
+export interface ActivityTimelineData {
+  total_study_minutes: number;
+  total_study_hours: number;
+  average_session_minutes: number;
+  efficiency_rating: string;
+  streak_days: number;
+  daily_velocity: Array<{
+    day: string;
+    date: string;
+    minutes: number;
+    accuracy: number;
+    target: number;
+  }>;
+  events: ActivityTimelineEvent[];
 }
 
 export interface StudentDashboardData {
